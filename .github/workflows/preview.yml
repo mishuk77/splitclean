@@ -1,0 +1,153 @@
+name: Preview Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - '.github/workflows/update.yml'
+
+concurrency:
+  group: preview-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+  detect-changes:
+    name: Detect Native Changes
+    runs-on: ubuntu-latest
+    outputs:
+      native_changed: ${{ steps.check.outputs.native_changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for native dependency changes
+        id: check
+        run: |
+          # Files that indicate native dependencies changed (require full rebuild)
+          NATIVE_FILES="package.json package-lock.json app.json eas.json ios/ android/ plugins/"
+
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "package.json")
+          NATIVE_CHANGED="false"
+
+          for file in $NATIVE_FILES; do
+            if echo "$CHANGED" | grep -q "^${file}"; then
+              NATIVE_CHANGED="true"
+              echo "Native change detected: $file"
+              break
+            fi
+          done
+
+          echo "native_changed=$NATIVE_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Native deps changed: $NATIVE_CHANGED"
+
+  ota-update:
+    name: OTA Update (Fast Path)
+    needs: [quality-checks, detect-changes]
+    if: needs.detect-changes.outputs.native_changed == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish OTA update
+        run: eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
+
+  build:
+    name: Build Preview (${{ matrix.platform }})
+    needs: [quality-checks, detect-changes]
+    if: needs.detect-changes.outputs.native_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [android, ios]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: eas build --platform ${{ matrix.platform }} --profile preview --non-interactive
+
+  first-build:
+    name: Initial Build (All Platforms)
+    needs: [quality-checks]
+    if: github.event.commits[0].message == 'initial-build' || github.event.head_commit.message == 'trigger-build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Android
+        run: eas build --platform android --profile preview --non-interactive
+
+      - name: Build iOS
+        run: eas build --platform ios --profile preview --non-interactive
