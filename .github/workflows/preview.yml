@@ -23,10 +23,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: TypeScript check
         run: npx tsc --noEmit
@@ -48,12 +47,9 @@ jobs:
       - name: Check for native dependency changes
         id: check
         run: |
-          # Files that indicate native dependencies changed (require full rebuild)
-          NATIVE_FILES="package.json package-lock.json app.json eas.json ios/ android/ plugins/"
-
+          NATIVE_FILES="package.json app.json eas.json"
           CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "package.json")
           NATIVE_CHANGED="false"
-
           for file in $NATIVE_FILES; do
             if echo "$CHANGED" | grep -q "^${file}"; then
               NATIVE_CHANGED="true"
@@ -61,7 +57,6 @@ jobs:
               break
             fi
           done
-
           echo "native_changed=$NATIVE_CHANGED" >> "$GITHUB_OUTPUT"
           echo "Native deps changed: $NATIVE_CHANGED"
 
@@ -78,7 +73,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -87,7 +81,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Publish OTA update
         run: eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
@@ -108,7 +102,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -117,7 +110,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: eas build --platform ${{ matrix.platform }} --profile preview --non-interactive
@@ -135,7 +128,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -144,7 +136,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Android
         run: eas build --platform android --profile preview --non-interactive

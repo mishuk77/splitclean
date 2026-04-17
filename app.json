@@ -4,7 +4,6 @@
     "slug": "splitclean",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "splitclean",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,8 +15,6 @@
       "fallbackToCacheTimeout": 0
     },
     "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
       "backgroundColor": "#0A0A0F"
     },
     "ios": {
@@ -25,16 +22,11 @@
       "bundleIdentifier": "com.splitclean.app"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0A0A0F"
-      },
       "package": "com.splitclean.app"
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router"
